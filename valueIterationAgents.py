@@ -60,20 +60,36 @@ class ValueIterationAgent(ValueEstimationAgent):
         self.runValueIteration()
 
     def runValueIteration(self):
-        # Write value iteration code here
+        """
+        Run batch value iteration for the configured number of iterations.
+
+        The method performs synchronous updates: each iteration computes a
+        complete new value function from the previous iteration's values, then
+        replaces self.values after all states are processed.
+
+        Update rule for each non-terminal state s:
+            V_{k+1}(s) = max_a sum_{s'} P(s'|s,a)
+                                * (R(s,a,s') + discount * V_k(s'))
+
+        Terminal states, and states with no legal actions, are assigned value 0
+        for that iteration.
+        """
         states = self.mdp.getStates()
 
         for _ in range(self.iterations):
+            # Snapshot previous iteration values for synchronous (batch) updates.
             oldValues = util.Counter()
             oldValues.update(self.values)
             newValues = util.Counter()
 
             for state in states:
+                # Terminal states have fixed value 0.
                 if self.mdp.isTerminal(state):
                     newValues[state] = 0
                     continue
 
                 actions = self.mdp.getPossibleActions(state)
+                # States with no legal actions are treated as terminal.
                 if len(actions) == 0:
                     newValues[state] = 0
                     continue
@@ -81,13 +97,16 @@ class ValueIterationAgent(ValueEstimationAgent):
                 qValues = []
                 for action in actions:
                     qValue = 0
+                    # Bellman expectation over stochastic next states.
                     for nextState, prob in self.mdp.getTransitionStatesAndProbs(state, action):
                         reward = self.mdp.getReward(state, action, nextState)
                         qValue += prob * (reward + self.discount * oldValues[nextState])
                     qValues.append(qValue)
 
+                # Greedy policy improvement step for this state.
                 newValues[state] = max(qValues)
 
+            # Commit all state updates simultaneously.
             self.values = newValues
 
 
